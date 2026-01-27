@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppConfig {
+  key       String   @id
+  version   Int      @default(1)
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model RideVisibility {
+  id         Int    @id @default(autoincrement())
+  rideId     Int
+  captainId  Int
+  state      String
+  createdAt  DateTime @default(now())
+  @@unique([rideId, captainId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  targetRole UserRole? // RIDER or CAPTAIN, null for broadcast
+  title     String
+  body      String
+  data      Json?
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  firebaseUid String   @unique
+  phone       String?  @unique
+  name        String?
+  role        UserRole @default(RIDER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pushToken   String?  // <-- new: stores FCM token
+
+  riderRides   Ride[] @relation("RideRider")
+  captainRides Ride[] @relation("RideCaptain")
+}
+
+enum RideType {
+PREMIUM
+ECONOMY
+SCOOTER
+FAIR_VALUE // new type
+}
+
+enum UserRole {
+  RIDER
+  CAPTAIN
+  ADMIN
+}
+
+enum RideStatus {
+  REQUESTED
+  ACCEPTED
+  ARRIVED
+  STARTED
+  COMPLETED
+  CANCELED
+}
+
+model Ride {
+  id     Int        @id @default(autoincrement())
+  status RideStatus @default(REQUESTED)
+
+  riderId Int
+  rider   User @relation("RideRider", fields: [riderId], references: [id])
+  
+  stateVersion Int @default(0)
+
+  captainId Int?
+  captain   User? @relation("RideCaptain", fields: [captainId], references: [id])
+
+  pickupLat  Float
+  pickupLng  Float
+  pickupAddr String?
+
+  dropLat  Float
+  dropLng  Float
+  dropAddr String?
+
+  type RideType
+
+  suggestedFare Float? 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([riderId])
+  @@index([captainId])
+}

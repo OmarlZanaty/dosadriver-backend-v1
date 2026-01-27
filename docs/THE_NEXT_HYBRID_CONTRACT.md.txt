@@ -1,0 +1,62 @@
+# THE NEXT — Hybrid Contract (Backend + Firestore Bridge)
+
+## Goal
+- Backend (Postgres) is the ONLY source of truth for rides, rules, and status transitions.
+- Firestore is used ONLY as a realtime mirror for UI streaming + (temporary) captain live location.
+- Firebase Auth + FCM remain.
+
+---
+
+## Authority Rules (Non-negotiable)
+1) Apps NEVER write ride status to Firestore.
+2) Apps ONLY call backend for ride actions (create/accept/arrive/start/complete/cancel).
+3) Firestore `rides/{rideId}` is written by backend only (Admin SDK).
+4) Rider/Captain apps only READ `rides/{rideId}` for realtime UI updates.
+5) Optional (temporary): Captain app writes ONLY its own location to `captains_live/{captainId}`.
+
+---
+
+## What lives where
+
+### Backend (Postgres) — Authoritative
+- Ride creation + status transitions + permissions
+- Cancellation logic
+- Ride history
+- Admin queries (later)
+
+### Firestore — Bridge / Mirror (UI only)
+- `rides/{rideId}`: mirror of ride status + captainId + coords + timestamps
+- `captains_live/{captainId}`: (temporary) captain location updates for tracking UI
+
+### Firebase
+- Auth (ID token verification)
+- FCM notifications
+
+---
+
+## Status Canonical Format (for hybrid today)
+Backend status enum (UPPERCASE):
+REQUESTED, ACCEPTED, ARRIVED, STARTED, COMPLETED, CANCELED
+
+Firestore mirror stores status as UPPERCASE too.
+
+---
+
+## Client Data Flow
+
+### Rider
+- Create ride -> backend returns rideId
+- Subscribe Firestore `rides/{rideId}` for realtime status updates
+- Cancel -> backend endpoint only
+
+### Captain
+- Open rides -> backend (poll) OR Firestore feed (later)
+- Accept/Arrive/Start/Complete -> backend endpoints only
+- Subscribe Firestore `rides/{rideId}` for realtime updates
+- Location -> writes to `captains_live/{captainId}` only (temporary)
+
+---
+
+## Firestore Security Rules (must enforce)
+- `rides/{rideId}`: read allowed, write denied for clients
+- `captains_live/{captainId}`: write allowed only if request.auth.uid == captainId

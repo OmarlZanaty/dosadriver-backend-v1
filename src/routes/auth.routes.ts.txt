@@ -1,0 +1,30 @@
+import { Router } from "express";
+import { upsertUserFromFirebase } from "../users/users.service";
+
+const router = Router();
+
+// assuming your auth middleware sets req.user = decoded firebase claims
+router.get("/me", async (req: any, res) => {
+  try {
+    if (!req.user?.uid) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
+    const dbUser = await upsertUserFromFirebase({
+      uid: req.user.uid,
+      name: req.user.name,
+      phone_number: req.user.phone_number,
+    });
+
+    return res.json({
+      ok: true,
+      uid: req.user.uid,
+      user: dbUser,
+    });
+  } catch (e: any) {
+    console.error("auth/me error:", e);
+    return res.status(500).json({ ok: false, message: "Server error" });
+  }
+});
+
+export default router;
