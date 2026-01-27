@@ -255,22 +255,38 @@ const dropLng = firstNumber(input, [
   if (ride.captainId !== captain.id) {
   throw new ForbiddenException('NOT_YOUR_RIDE');
   }
+    const cancelable: RideStatus[] = [RideStatus.ACCEPTED, RideStatus.ARRIVED];
+    if (!cancelable.includes(ride.status)) {
+      throw new BadRequestException('Ride cannot be canceled at this status');
+    }
 
+    
   // allow cancel only before STARTED (you can decide the rule)
-  const cancelable: RideStatus[] = [RideStatus.ACCEPTED, RideStatus.ARRIVED];
-  if (!cancelable.includes(ride.status)) {
-    throw new BadRequestException('Ride cannot be canceled at this status');
-  }
+      const { count } = await this.prisma.ride.updateMany({
+      where: {
+        id: rideId,
+        stateVersion: ride.stateVersion,
+        captainId: captain.id,
+        status: { in: cancelable },
+      },
+      data: {
+        stateVersion: { increment: 1 },
+        status: RideStatus.CANCELED,
+      },
+    });
+    if (count === 0) {
+      throw new ConflictException('Ride was updated by another operation');
+    }
+    const updated = await this.prisma.ride.findUnique({ where: { id: rideId } });
 
-  const updated = await this.prisma.ride.update({
-    where: { id: rideId },
-    data: { status: RideStatus.CANCELED, stateVersion: { increment: 1 } },
-  });
+    
+              await this.notificationService.notifyRideStatus(updated, RideStatus.CANCELED);
 
-  await this.notificationService.notifyRideStatus(updated, 'CANCELED');
-  await this.bridge.safeUpsertRideMirror(updated);
-  return updated;
-}
+    
+
+    await this.bridge.safeUpsertRideMirror(updated);
+    return updated;
+
 
   // Rider gets their active ride
   async getActiveRideForRider(rider: DbUser) {
