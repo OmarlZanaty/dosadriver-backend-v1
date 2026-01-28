@@ -93,6 +93,10 @@ model Ride {
   type RideType
 
   suggestedFare Float? 
+  price Float?
+  distanceKm Float?
+  durationMin Float?
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
