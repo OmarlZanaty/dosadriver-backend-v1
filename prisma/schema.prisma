@@ -70,6 +70,20 @@ enum RideStatus {
   CANCELED
 }
 
+enum NegotiationStatus {
+  OPEN
+  CHOSEN
+  CLOSED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+
 model Ride {
   id     Int        @id @default(autoincrement())
   status RideStatus @default(REQUESTED)
@@ -96,6 +110,13 @@ model Ride {
   price Float?
   distanceKm Float?
   durationMin Float?
+  agreedFare Float?
+     negotiationStatus NegotiationStatus @default(OPEN)
+
+
+
+
+
 
 
   createdAt DateTime @default(now())
@@ -105,3 +126,19 @@ model Ride {
   @@index([riderId])
   @@index([captainId])
 }
+model RideOffer {
+  id          Int      @id @default(autoincrement())
+  rideId      Int
+  captainId   Int
+  offeredFare Float
+  etaMin      Int?
+  distanceKm  Float?
+  status      OfferStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+
+  ride        Ride     @relation(fields: [rideId], references: [id])
+  captain     User     @relation(fields: [captainId], references: [id])
+
+  @@unique([rideId, captainId])
+}
+
